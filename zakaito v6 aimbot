@@ -219,6 +219,26 @@ MainStroke.Color = Color3.fromRGB(28, 28, 34)
 MainStroke.Thickness = 1
 MainStroke.Parent = MainFrame
 
+-- Mini Floating Bar (الشريط المصغر عند الإخفاء)
+local MiniBar = Instance.new("TextButton")
+MiniBar.Size = UDim2.new(0, 150, 0, 32)
+MiniBar.Position = UDim2.new(0.5, -75, 0, 15)
+MiniBar.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+MiniBar.Text = "KH  |  Open Menu  ⚙️"
+MiniBar.TextColor3 = Color3.fromRGB(235, 52, 122)
+MiniBar.Font = Enum.Font.GothamBold
+MiniBar.TextSize = 12
+MiniBar.Active = true
+MiniBar.Draggable = true
+MiniBar.Visible = false
+MiniBar.Parent = ScreenGui
+Instance.new("UICorner", MiniBar).CornerRadius = UDim.new(0, 8)
+
+local MiniStroke = Instance.new("UIStroke")
+MiniStroke.Color = Color3.fromRGB(235, 52, 122)
+MiniStroke.Thickness = 1.2
+MiniStroke.Parent = MiniBar
+
 -- Left Sidebar
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 50, 1, 0)
@@ -274,8 +294,18 @@ CloseBtn.TextSize = 12
 CloseBtn.Parent = MainContent
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
+-- Function To Toggle Menu Visibility
+local function SetMenuVisible(visible)
+	MainFrame.Visible = visible
+	MiniBar.Visible = not visible
+end
+
 CloseBtn.MouseButton1Click:Connect(function()
-	MainFrame.Visible = false
+	SetMenuVisible(false)
+end)
+
+MiniBar.MouseButton1Click:Connect(function()
+	SetMenuVisible(true)
 end)
 
 -- Top Sub-Tabs Container
@@ -427,7 +457,7 @@ function ToggleFly(state)
 end
 
 --------------------------------------------------------------------------------
--- 8. Key Lock & Hide/Toggle Logic
+-- 8. Key Lock & Bindings
 --------------------------------------------------------------------------------
 SubmitBtn.MouseButton1Click:Connect(function()
 	if KeyTextBox.Text == CORRECT_KEY then
@@ -441,14 +471,13 @@ SubmitBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Keybinds (Insert OR RightControl to Hide/Show UI, E for Fly)
 UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
 	
-	-- Hide/Show Menu Key (Insert / Right Control)
+	-- Toggle Visibility with Insert
 	if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightControl then
 		if KeyUnlocked then
-			MainFrame.Visible = not MainFrame.Visible
+			SetMenuVisible(not MainFrame.Visible)
 		end
 	end
 
