@@ -2,7 +2,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -25,9 +24,6 @@ local Features = {
 	ESP_Highlight = false,
 	ESP_Names = false,
 	ShowFOV = false,
-	FullBright = false,
-	NoFog = false,
-	NightMode = false,
 
 	-- Movement & World
 	FlyMode = false,
@@ -35,17 +31,14 @@ local Features = {
 	HighJump = false,
 	InfiniteJump = false,
 	Noclip = false,
-	LowGravity = false,
 
 	-- Misc
-	AntiAFK = false,
-	FOVZoom = false
+	AntiAFK = false
 }
 
 local IsAiming = false
 local FOVRadius = 150
 local Smoothness = 0.85
-local NormalLighting = {Brightness = Lighting.Brightness, ClockTime = Lighting.ClockTime, FogEnd = Lighting.FogEnd}
 
 -- Fly Variables
 local Flying = false
@@ -145,7 +138,7 @@ local function UpdateESPState()
 end
 
 --------------------------------------------------------------------------------
--- 4. GUI DESIGN (KH EXTERNAL DESIGN STYLE)
+-- 4. GUI DESIGN
 --------------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZakaitoHubV6"
@@ -157,7 +150,6 @@ local KeyFrame = Instance.new("Frame")
 KeyFrame.Size = UDim2.new(0, 340, 0, 200)
 KeyFrame.Position = UDim2.new(0.5, -170, 0.4, -100)
 KeyFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
-KeyFrame.BorderSizePixel = 0
 KeyFrame.Active = true
 KeyFrame.Draggable = true
 KeyFrame.Parent = ScreenGui
@@ -171,7 +163,7 @@ KeyStroke.Parent = KeyFrame
 local KeyTitle = Instance.new("TextLabel")
 KeyTitle.Size = UDim2.new(1, 0, 0, 50)
 KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "KH | ZAKAITO V6"
+KeyTitle.Text = "ZK | ZAKAITO V6"
 KeyTitle.TextColor3 = Color3.fromRGB(235, 52, 122)
 KeyTitle.TextSize = 18
 KeyTitle.Font = Enum.Font.GothamBold
@@ -182,9 +174,7 @@ KeyTextBox.Size = UDim2.new(0.85, 0, 0, 40)
 KeyTextBox.Position = UDim2.new(0.075, 0, 0.33, 0)
 KeyTextBox.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 KeyTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyTextBox.Text = ""
 KeyTextBox.PlaceholderText = "Enter key..."
-KeyTextBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 110)
 KeyTextBox.Font = Enum.Font.Gotham
 KeyTextBox.TextSize = 13
 KeyTextBox.Parent = KeyFrame
@@ -206,7 +196,6 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 640, 0, 380)
 MainFrame.Position = UDim2.new(0.5, -320, 0.3, -190)
 MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Visible = false
@@ -215,29 +204,9 @@ MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(28, 28, 34)
-MainStroke.Thickness = 1
+MainStroke.Color = Color3.fromRGB(235, 52, 122)
+MainStroke.Thickness = 1.2
 MainStroke.Parent = MainFrame
-
--- Mini Floating Bar (الشريط المصغر عند الإخفاء)
-local MiniBar = Instance.new("TextButton")
-MiniBar.Size = UDim2.new(0, 150, 0, 32)
-MiniBar.Position = UDim2.new(0.5, -75, 0, 15)
-MiniBar.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-MiniBar.Text = "KH  |  Open Menu  ⚙️"
-MiniBar.TextColor3 = Color3.fromRGB(235, 52, 122)
-MiniBar.Font = Enum.Font.GothamBold
-MiniBar.TextSize = 12
-MiniBar.Active = true
-MiniBar.Draggable = true
-MiniBar.Visible = false
-MiniBar.Parent = ScreenGui
-Instance.new("UICorner", MiniBar).CornerRadius = UDim.new(0, 8)
-
-local MiniStroke = Instance.new("UIStroke")
-MiniStroke.Color = Color3.fromRGB(235, 52, 122)
-MiniStroke.Thickness = 1.2
-MiniStroke.Parent = MiniBar
 
 -- Left Sidebar
 local Sidebar = Instance.new("Frame")
@@ -247,22 +216,13 @@ Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
 
 local Logo = Instance.new("TextLabel")
-Logo.Size = UDim2.new(1, 0, 0, 50)
+Logo.Size = UDim2.new(1, 0, 0, 45)
 Logo.BackgroundTransparency = 1
-Logo.Text = "KH"
+Logo.Text = "ZK"
 Logo.TextColor3 = Color3.fromRGB(235, 52, 122)
 Logo.TextSize = 18
 Logo.Font = Enum.Font.GothamBold
 Logo.Parent = Sidebar
-
-local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-SidebarLayout.Padding = UDim.new(0, 12)
-SidebarLayout.Parent = Sidebar
-
-local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 60)
-SidebarPad.Parent = Sidebar
 
 -- Main Content Area
 local MainContent = Instance.new("Frame")
@@ -271,59 +231,27 @@ MainContent.Position = UDim2.new(0, 50, 0, 0)
 MainContent.BackgroundTransparency = 1
 MainContent.Parent = MainFrame
 
-local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(1, -60, 0, 30)
-HeaderTitle.Position = UDim2.new(0, 20, 0, 10)
-HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "Combat\nAimAssist, Triggerbot, SilentAimbot, Guns Settings"
-HeaderTitle.TextColor3 = Color3.fromRGB(180, 180, 190)
-HeaderTitle.TextSize = 11
-HeaderTitle.Font = Enum.Font.Gotham
-HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-HeaderTitle.Parent = MainContent
+-- Green Big Arrow Toggle Button
+local ArrowBtn = Instance.new("TextButton")
+ArrowBtn.Size = UDim2.new(0, 32, 0, 32)
+ArrowBtn.Position = UDim2.new(1, -42, 0, 6)
+ArrowBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+ArrowBtn.Text = "▲"
+ArrowBtn.TextColor3 = Color3.fromRGB(0, 255, 120)
+ArrowBtn.Font = Enum.Font.GothamBold
+ArrowBtn.TextSize = 16
+ArrowBtn.Parent = MainContent
+Instance.new("UICorner", ArrowBtn).CornerRadius = UDim.new(0, 8)
 
--- Close / Hide Button (Top Right "X")
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 24, 0, 24)
-CloseBtn.Position = UDim2.new(1, -34, 0, 12)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 12
-CloseBtn.Parent = MainContent
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-
--- Function To Toggle Menu Visibility
-local function SetMenuVisible(visible)
-	MainFrame.Visible = visible
-	MiniBar.Visible = not visible
-end
-
-CloseBtn.MouseButton1Click:Connect(function()
-	SetMenuVisible(false)
-end)
-
-MiniBar.MouseButton1Click:Connect(function()
-	SetMenuVisible(true)
-end)
-
--- Top Sub-Tabs Container
-local TopSubTabs = Instance.new("Frame")
-TopSubTabs.Size = UDim2.new(1, -40, 0, 30)
-TopSubTabs.Position = UDim2.new(0, 20, 0, 45)
-TopSubTabs.BackgroundTransparency = 1
-TopSubTabs.Parent = MainContent
-
-local SubTabsLayout = Instance.new("UIListLayout")
-SubTabsLayout.FillDirection = Enum.FillDirection.Horizontal
-SubTabsLayout.Padding = UDim.new(0, 20)
-SubTabsLayout.Parent = TopSubTabs
+local ArrowStroke = Instance.new("UIStroke")
+ArrowStroke.Color = Color3.fromRGB(0, 255, 120)
+ArrowStroke.Thickness = 1
+ArrowStroke.Parent = ArrowBtn
 
 -- Columns Area
 local ColumnsContainer = Instance.new("Frame")
-ColumnsContainer.Size = UDim2.new(1, -40, 1, -85)
-ColumnsContainer.Position = UDim2.new(0, 20, 0, 80)
+ColumnsContainer.Size = UDim2.new(1, -40, 1, -50)
+ColumnsContainer.Position = UDim2.new(0, 20, 0, 45)
 ColumnsContainer.BackgroundTransparency = 1
 ColumnsContainer.Parent = MainContent
 
@@ -336,7 +264,7 @@ LeftColumn.CanvasSize = UDim2.new(0, 0, 0, 360)
 LeftColumn.Parent = ColumnsContainer
 
 local LeftLayout = Instance.new("UIListLayout")
-LeftLayout.Padding = UDim.new(0, 10)
+LeftLayout.Padding = UDim.new(0, 8)
 LeftLayout.Parent = LeftColumn
 
 local RightColumn = Instance.new("ScrollingFrame")
@@ -349,11 +277,40 @@ RightColumn.CanvasSize = UDim2.new(0, 0, 0, 360)
 RightColumn.Parent = ColumnsContainer
 
 local RightLayout = Instance.new("UIListLayout")
-RightLayout.Padding = UDim.new(0, 10)
+RightLayout.Padding = UDim.new(0, 8)
 RightLayout.Parent = RightColumn
 
 --------------------------------------------------------------------------------
--- 5. Helper Function: Create Toggle Switch
+-- 5. Green Arrow Minimize Mechanism
+--------------------------------------------------------------------------------
+local isMinimized = false
+
+ArrowBtn.MouseButton1Click:Connect(function()
+	isMinimized = not isMinimized
+
+	if isMinimized then
+		-- Minimize to long line
+		TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 640, 0, 44)
+		}):Play()
+		
+		ColumnsContainer.Visible = false
+		ArrowBtn.Text = "▼"
+	else
+		-- Restore Full Size
+		TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 640, 0, 380)
+		}):Play()
+		
+		task.delay(0.15, function()
+			ColumnsContainer.Visible = true
+		end)
+		ArrowBtn.Text = "▲"
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- 6. Helper Function: Create Toggle Switch
 --------------------------------------------------------------------------------
 local function CreateSwitch(parent, labelText, featureKey, callback)
 	local container = Instance.new("Frame")
@@ -409,7 +366,7 @@ local function CreateSwitch(parent, labelText, featureKey, callback)
 end
 
 --------------------------------------------------------------------------------
--- 6. Options Setup
+-- 7. Options Setup
 --------------------------------------------------------------------------------
 -- Left Column
 CreateSwitch(LeftColumn, "Aimbot Enabled", "Aimbot")
@@ -431,7 +388,7 @@ CreateSwitch(RightColumn, "Noclip", "Noclip")
 CreateSwitch(RightColumn, "Anti AFK", "AntiAFK")
 
 --------------------------------------------------------------------------------
--- 7. Fly Logic
+-- 8. Fly Logic
 --------------------------------------------------------------------------------
 function ToggleFly(state)
 	local char = LocalPlayer.Character
@@ -457,7 +414,7 @@ function ToggleFly(state)
 end
 
 --------------------------------------------------------------------------------
--- 8. Key Lock & Bindings
+-- 9. Key Authentication & Keybinds
 --------------------------------------------------------------------------------
 SubmitBtn.MouseButton1Click:Connect(function()
 	if KeyTextBox.Text == CORRECT_KEY then
@@ -473,13 +430,6 @@ end)
 
 UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
-	
-	-- Toggle Visibility with Insert
-	if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightControl then
-		if KeyUnlocked then
-			SetMenuVisible(not MainFrame.Visible)
-		end
-	end
 
 	if input.UserInputType == Enum.UserInputType.MouseButton2 then IsAiming = true end
 	
@@ -500,14 +450,9 @@ UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton2 then IsAiming = false end
 end)
 
-LocalPlayer.Idled:Connect(function()
-	if Features.AntiAFK then
-		local VirtualUser = game:GetService("VirtualUser")
-		VirtualUser:CaptureController()
-		VirtualUser:ClickButton2(Vector2.new())
-	end
-end)
-
+--------------------------------------------------------------------------------
+-- 10. RenderStepped Loop
+--------------------------------------------------------------------------------
 local function GetClosestTarget()
 	local closestTarget = nil
 	local shortestDistance = FOVRadius
@@ -553,23 +498,9 @@ RunService.RenderStepped:Connect(function()
 	end
 
 	if Features.Aimbot and IsAiming then
-		FOVCircle.Color = Color3.fromRGB(235, 52, 122)
 		local target = GetClosestTarget()
 		if target then
 			Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Smoothness)
-		end
-	else
-		FOVCircle.Color = Color3.fromRGB(235, 52, 122)
-	end
-
-	if Features.TriggerBot then
-		local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
-		local result = workspace:Raycast(ray.Origin, ray.Direction * 1000)
-		if result and result.Instance and result.Instance.Parent then
-			local targetPlayer = Players:GetPlayerFromCharacter(result.Instance.Parent)
-			if targetPlayer and targetPlayer ~= LocalPlayer then
-				mouse1click()
-			end
 		end
 	end
 
@@ -584,22 +515,6 @@ RunService.RenderStepped:Connect(function()
 		if humanoid then
 			humanoid.WalkSpeed = Features.SpeedBoost and 28 or 16
 			humanoid.JumpPower = Features.HighJump and 80 or 50
-		end
-
-		local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-		if tool then
-			if Features.FastReload and humanoid then
-				for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
-					if string.find(string.lower(track.Name), "reload") then track:AdjustSpeed(10) end
-				end
-			end
-			if Features.InfiniteAmmo then
-				for _, v in pairs(tool:GetDescendants()) do
-					if (v:IsA("IntValue") or v:IsA("NumberValue")) and string.find(string.lower(v.Name), "ammo") then
-						v.Value = 999
-					end
-				end
-			end
 		end
 	end
 end)
