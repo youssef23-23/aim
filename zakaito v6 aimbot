@@ -8,42 +8,50 @@ local Camera = workspace.CurrentCamera
 --------------------------------------------------------------------------------
 -- 1. الإعدادات والمميزات (Settings & Features)
 --------------------------------------------------------------------------------
-local CORRECT_KEY = "zakaito2026"
+local CORRECT_KEY = "1"
 local KeyUnlocked = false
 
 local Features = {
-	-- Combat
-	Aimbot = false,
-	TriggerBot = false,
-	HeadshotOnly = false,
-	FastReload = false,
-	NoRecoil = false,
-	InfiniteAmmo = false,
+    -- Combat
+    Aimbot = false,
+    SilentAim = false,
+    KillAll = false,
+    TeamCheck = true,
+    TriggerBot = false,
+    HeadshotOnly = false,
+    FastReload = false,
+    NoRecoil = false,
+    InfiniteAmmo = false,
 
-	-- ESP & Visuals
-	ESP_Highlight = false,
-	ESP_Names = false,
-	ShowFOV = false,
+    -- ESP & Visuals
+    ESP_Highlight = false,
+    ESP_Names = false,
+    ESP_BoxRGB = false,   -- المربع الـ RGB
+    ESP_Health = false,   -- صحة العدو
+    ESP_Tracers = false,  -- خطوط الـ Tracers
+    ShowFOV = false,
 
-	-- Movement & World
-	FlyMode = false,
-	SpeedBoost = false,
-	HighJump = false,
-	InfiniteJump = false,
-	Noclip = false,
+    -- Movement & World
+    FlyMode = false,
+    SpeedBoost = false,
+    HighJump = false,
+    InfiniteJump = false,
+    Noclip = false,
 
-	-- Misc
-	AntiAFK = false
+    -- Misc
+    AntiAFK = false
 }
 
 local IsAiming = false
+local IsShooting = false
 local FOVRadius = 150
 local Smoothness = 0.85
 
 -- Fly Variables
-local Flying = false
 local FlySpeed = 50
-local BV, BG
+local FlyAttachment = nil
+local FlyLV = nil
+local FlyAO = nil
 
 --------------------------------------------------------------------------------
 -- 2. FOV Circle
@@ -58,67 +66,109 @@ FOVCircle.Filled = false
 FOVCircle.Transparency = 0.8
 
 --------------------------------------------------------------------------------
--- 3. ESP System
+-- 3. ESP System (محدث بالـ RGB Box, Health, Tracers)
 --------------------------------------------------------------------------------
 local ESPObjects = {}
 
+local function GetRGBColor()
+    return Color3.fromHSV((tick() * 0.8) % 1, 1, 1)
+end
+
 local function RemoveESP(player)
-	if ESPObjects[player] then
-		for _, v in pairs(ESPObjects[player]) do
-			if v then v:Destroy() end
-		end
-		ESPObjects[player] = nil
-	end
+    if ESPObjects[player] then
+        for _, v in pairs(ESPObjects[player]) do
+            if type(v) == "userdata" and v.Remove then
+                v:Remove() -- للمجسمات الناتجة من Drawing
+            elseif type(v) == "userdata" and v.Destroy then
+                v:Destroy() -- لكائنات Roblox العادية
+            end
+        end
+        ESPObjects[player] = nil
+    end
 end
 
 local function ApplyESP(player)
-	if player == LocalPlayer then return end
-	RemoveESP(player)
+    if player == LocalPlayer then return end
+    RemoveESP(player)
 
-	local function SetupCharacter(char)
-		if not char then return end
-		local root = char:WaitForChild("HumanoidRootPart", 5)
-		local head = char:WaitForChild("Head", 5)
-		if not root or not head then return end
+    local function SetupCharacter(char)
+        if not char then return end
+        local root = char:WaitForChild("HumanoidRootPart", 5)
+        local head = char:WaitForChild("Head", 5)
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if not root or not head or not humanoid then return end
 
-		ESPObjects[player] = {}
+        ESPObjects[player] = {}
 
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "Zakaito_Highlight"
-		highlight.Adornee = char
-		highlight.FillColor = Color3.fromRGB(235, 52, 122)
-		highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = 0.4
-		highlight.OutlineTransparency = 0
-		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		highlight.Enabled = Features.ESP_Highlight
-		highlight.Parent = char
-		table.insert(ESPObjects[player], highlight)
+        -- 1. Highlight
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "Zakaito_Highlight"
+        highlight.Adornee = char
+        highlight.FillColor = Color3.fromRGB(235, 52, 122)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.4
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = Features.ESP_Highlight
+        highlight.Parent = char
+        table.insert(ESPObjects[player], highlight)
 
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "Zakaito_NameTag"
-		billboard.Adornee = head
-		billboard.Size = UDim2.new(0, 120, 0, 30)
-		billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-		billboard.AlwaysOnTop = true
-		billboard.Enabled = Features.ESP_Names
+        -- 2. Names & Health GUI
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "Zakaito_NameTag"
+        billboard.Adornee = head
+        billboard.Size = UDim2.new(0, 120, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Enabled = Features.ESP_Names or Features.ESP_Health
 
-		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size = UDim2.new(1, 0, 1, 0)
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.Text = player.Name
-		nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		nameLabel.TextStrokeTransparency = 0.3
-		nameLabel.Font = Enum.Font.GothamMedium
-		nameLabel.TextSize = 12
-		nameLabel.Parent = billboard
-		billboard.Parent = head
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Name = "NameLabel"
+        nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = player.Name
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        nameLabel.TextStrokeTransparency = 0.3
+        nameLabel.Font = Enum.Font.GothamMedium
+        nameLabel.TextSize = 12
+        nameLabel.Visible = Features.ESP_Names
+        nameLabel.Parent = billboard
 
-		table.insert(ESPObjects[player], billboard)
-	end
+        local healthLabel = Instance.new("TextLabel")
+        healthLabel.Name = "HealthLabel"
+        healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        healthLabel.Position = UDim2.new(0, 0, 0.5, 0)
+        healthLabel.BackgroundTransparency = 1
+        healthLabel.Text = "HP: " .. math.floor(humanoid.Health)
+        healthLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
+        healthLabel.TextStrokeTransparency = 0.3
+        healthLabel.Font = Enum.Font.GothamBold
+        healthLabel.TextSize = 11
+        healthLabel.Visible = Features.ESP_Health
+        healthLabel.Parent = billboard
 
-	player.CharacterAdded:Connect(SetupCharacter)
-	if player.Character then SetupCharacter(player.Character) end
+        billboard.Parent = head
+        table.insert(ESPObjects[player], billboard)
+
+        humanoid.HealthChanged:Connect(function(health)
+            healthLabel.Text = "HP: " .. math.floor(health)
+        end)
+
+        -- 3. Drawing Elements (RGB Box & Tracers)
+        local box = Drawing.new("Square")
+        box.Thickness = 1.5
+        box.Filled = false
+        box.Visible = false
+        table.insert(ESPObjects[player], box)
+
+        local tracer = Drawing.new("Line")
+        tracer.Thickness = 1.5
+        tracer.Visible = false
+        table.insert(ESPObjects[player], tracer)
+    end
+
+    player.CharacterAdded:Connect(SetupCharacter)
+    if player.Character then SetupCharacter(player.Character) end
 end
 
 for _, p in pairs(Players:GetPlayers()) do ApplyESP(p) end
@@ -126,15 +176,19 @@ Players.PlayerAdded:Connect(ApplyESP)
 Players.PlayerRemoving:Connect(RemoveESP)
 
 local function UpdateESPState()
-	for player, objs in pairs(ESPObjects) do
-		for _, obj in pairs(objs) do
-			if obj:IsA("Highlight") then
-				obj.Enabled = Features.ESP_Highlight
-			elseif obj:IsA("BillboardGui") then
-				obj.Enabled = Features.ESP_Names
-			end
-		end
-	end
+    for player, objs in pairs(ESPObjects) do
+        for _, obj in pairs(objs) do
+            if typeof(obj) == "Instance" then
+                if obj:IsA("Highlight") then
+                    obj.Enabled = Features.ESP_Highlight
+                elseif obj:IsA("BillboardGui") then
+                    obj.Enabled = Features.ESP_Names or Features.ESP_Health
+                    if obj:FindFirstChild("NameLabel") then obj.NameLabel.Visible = Features.ESP_Names end
+                    if obj:FindFirstChild("HealthLabel") then obj.HealthLabel.Visible = Features.ESP_Health end
+                end
+            end
+        end
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -260,7 +314,7 @@ LeftColumn.Size = UDim2.new(0.48, 0, 1, 0)
 LeftColumn.BackgroundTransparency = 1
 LeftColumn.ScrollBarThickness = 2
 LeftColumn.ScrollBarImageColor3 = Color3.fromRGB(235, 52, 122)
-LeftColumn.CanvasSize = UDim2.new(0, 0, 0, 360)
+LeftColumn.CanvasSize = UDim2.new(0, 0, 0, 450)
 LeftColumn.Parent = ColumnsContainer
 
 local LeftLayout = Instance.new("UIListLayout")
@@ -273,7 +327,7 @@ RightColumn.Position = UDim2.new(0.52, 0, 0, 0)
 RightColumn.BackgroundTransparency = 1
 RightColumn.ScrollBarThickness = 2
 RightColumn.ScrollBarImageColor3 = Color3.fromRGB(235, 52, 122)
-RightColumn.CanvasSize = UDim2.new(0, 0, 0, 360)
+RightColumn.CanvasSize = UDim2.new(0, 0, 0, 450)
 RightColumn.Parent = ColumnsContainer
 
 local RightLayout = Instance.new("UIListLayout")
@@ -286,83 +340,140 @@ RightLayout.Parent = RightColumn
 local isMinimized = false
 
 ArrowBtn.MouseButton1Click:Connect(function()
-	isMinimized = not isMinimized
+    isMinimized = not isMinimized
 
-	if isMinimized then
-		-- Minimize to long line
-		TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, 640, 0, 44)
-		}):Play()
-		
-		ColumnsContainer.Visible = false
-		ArrowBtn.Text = "▼"
-	else
-		-- Restore Full Size
-		TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, 640, 0, 380)
-		}):Play()
-		
-		task.delay(0.15, function()
-			ColumnsContainer.Visible = true
-		end)
-		ArrowBtn.Text = "▲"
-	end
+    if isMinimized then
+        TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 640, 0, 44)
+        }):Play()
+        
+        ColumnsContainer.Visible = false
+        ArrowBtn.Text = "▼"
+    else
+        TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 640, 0, 380)
+        }):Play()
+        
+        task.delay(0.15, function()
+            ColumnsContainer.Visible = true
+        end)
+        ArrowBtn.Text = "▲"
+    end
 end)
 
 --------------------------------------------------------------------------------
--- 6. Helper Function: Create Toggle Switch
+-- 6. Helper Functions: Switches & Sliders
 --------------------------------------------------------------------------------
 local function CreateSwitch(parent, labelText, featureKey, callback)
-	local container = Instance.new("Frame")
-	container.Size = UDim2.new(1, 0, 0, 30)
-	container.BackgroundTransparency = 1
-	container.Parent = parent
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 30)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(0.7, 0, 1, 0)
-	label.BackgroundTransparency = 1
-	label.Text = labelText
-	label.TextColor3 = Color3.fromRGB(200, 200, 210)
-	label.Font = Enum.Font.GothamMedium
-	label.TextSize = 12
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = container
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(200, 200, 210)
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
 
-	local switchBg = Instance.new("TextButton")
-	switchBg.Size = UDim2.new(0, 36, 0, 18)
-	switchBg.Position = UDim2.new(1, -40, 0.5, -9)
-	switchBg.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-	switchBg.Text = ""
-	switchBg.Parent = container
-	Instance.new("UICorner", switchBg).CornerRadius = UDim.new(1, 0)
+    local switchBg = Instance.new("TextButton")
+    switchBg.Size = UDim2.new(0, 36, 0, 18)
+    switchBg.Position = UDim2.new(1, -40, 0.5, -9)
+    switchBg.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    switchBg.Text = ""
+    switchBg.Parent = container
+    Instance.new("UICorner", switchBg).CornerRadius = UDim.new(1, 0)
 
-	local circle = Instance.new("Frame")
-	circle.Size = UDim2.new(0, 14, 0, 14)
-	circle.Position = UDim2.new(0, 2, 0.5, -7)
-	circle.BackgroundColor3 = Color3.fromRGB(150, 150, 160)
-	circle.Parent = switchBg
-	Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+    local circle = Instance.new("Frame")
+    circle.Size = UDim2.new(0, 14, 0, 14)
+    circle.Position = UDim2.new(0, 2, 0.5, -7)
+    circle.BackgroundColor3 = Color3.fromRGB(150, 150, 160)
+    circle.Parent = switchBg
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
 
-	local function UpdateSwitch()
-		local state = Features[featureKey]
-		if state then
-			TweenService:Create(circle, TweenInfo.new(0.15), {Position = UDim2.new(1, -16, 0.5, -7), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-			TweenService:Create(switchBg, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(235, 52, 122)}):Play()
-			label.TextColor3 = Color3.fromRGB(255, 255, 255)
-		else
-			TweenService:Create(circle, TweenInfo.new(0.15), {Position = UDim2.new(0, 2, 0.5, -7), BackgroundColor3 = Color3.fromRGB(150, 150, 160)}):Play()
-			TweenService:Create(switchBg, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 30, 38)}):Play()
-			label.TextColor3 = Color3.fromRGB(180, 180, 190)
-		end
-	end
+    local function UpdateSwitch()
+        local state = Features[featureKey]
+        if state then
+            TweenService:Create(circle, TweenInfo.new(0.15), {Position = UDim2.new(1, -16, 0.5, -7), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+            TweenService:Create(switchBg, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(235, 52, 122)}):Play()
+            label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            TweenService:Create(circle, TweenInfo.new(0.15), {Position = UDim2.new(0, 2, 0.5, -7), BackgroundColor3 = Color3.fromRGB(150, 150, 160)}):Play()
+            TweenService:Create(switchBg, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(30, 30, 38)}):Play()
+            label.TextColor3 = Color3.fromRGB(180, 180, 190)
+        end
+    end
 
-	UpdateSwitch()
+    UpdateSwitch()
 
-	switchBg.MouseButton1Click:Connect(function()
-		Features[featureKey] = not Features[featureKey]
-		UpdateSwitch()
-		if callback then callback(Features[featureKey]) end
-	end)
+    switchBg.MouseButton1Click:Connect(function()
+        Features[featureKey] = not Features[featureKey]
+        UpdateSwitch()
+        if callback then callback(Features[featureKey]) end
+    end)
+end
+
+local function CreateSlider(parent, labelText, minVal, maxVal, defaultVal, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 45)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 18)
+    label.BackgroundTransparency = 1
+    label.Text = labelText .. ": " .. tostring(defaultVal)
+    label.TextColor3 = Color3.fromRGB(200, 200, 210)
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+
+    local sliderBg = Instance.new("Frame")
+    sliderBg.Size = UDim2.new(1, -10, 0, 8)
+    sliderBg.Position = UDim2.new(0, 0, 0, 24)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    sliderBg.Parent = container
+    Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
+
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Size = UDim2.new((defaultVal - minVal) / (maxVal - minVal), 0, 1, 0)
+    sliderFill.BackgroundColor3 = Color3.fromRGB(235, 52, 122)
+    sliderFill.Parent = sliderBg
+    Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+
+    local dragging = false
+
+    local function UpdateValue(input)
+        local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+        sliderFill.Size = UDim2.new(pos, 0, 1, 0)
+        local val = math.floor(minVal + (maxVal - minVal) * pos)
+        label.Text = labelText .. ": " .. tostring(val)
+        if callback then callback(val) end
+    end
+
+    sliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            UpdateValue(input)
+        end
+    end)
+
+    sliderBg.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            UpdateValue(input)
+        end
+    end)
 end
 
 --------------------------------------------------------------------------------
@@ -370,6 +481,9 @@ end
 --------------------------------------------------------------------------------
 -- Left Column
 CreateSwitch(LeftColumn, "Aimbot Enabled", "Aimbot")
+CreateSwitch(LeftColumn, "Silent Aim (Hit in FOV)", "SilentAim")
+CreateSwitch(LeftColumn, "Kill All Enemies (Auto)", "KillAll")
+CreateSwitch(LeftColumn, "Team Check", "TeamCheck")
 CreateSwitch(LeftColumn, "Trigger Bot", "TriggerBot")
 CreateSwitch(LeftColumn, "Headshot Only", "HeadshotOnly")
 CreateSwitch(LeftColumn, "Fast Reload", "FastReload")
@@ -380,7 +494,14 @@ CreateSwitch(LeftColumn, "Fly Mode (Key E)", "FlyMode", function(s) ToggleFly(s)
 -- Right Column
 CreateSwitch(RightColumn, "ESP Highlight", "ESP_Highlight", function() UpdateESPState() end)
 CreateSwitch(RightColumn, "ESP Names", "ESP_Names", function() UpdateESPState() end)
+CreateSwitch(RightColumn, "ESP RGB Box", "ESP_BoxRGB")
+CreateSwitch(RightColumn, "ESP Health", "ESP_Health", function() UpdateESPState() end)
+CreateSwitch(RightColumn, "ESP Tracers", "ESP_Tracers")
 CreateSwitch(RightColumn, "Show FOV Circle", "ShowFOV", function(s) FOVCircle.Visible = s end)
+CreateSlider(RightColumn, "FOV Radius", 30, 600, FOVRadius, function(val)
+    FOVRadius = val
+    FOVCircle.Radius = val
+end)
 CreateSwitch(RightColumn, "Speed Boost", "SpeedBoost")
 CreateSwitch(RightColumn, "High Jump", "HighJump")
 CreateSwitch(RightColumn, "Infinite Jump", "InfiniteJump")
@@ -391,130 +512,230 @@ CreateSwitch(RightColumn, "Anti AFK", "AntiAFK")
 -- 8. Fly Logic
 --------------------------------------------------------------------------------
 function ToggleFly(state)
-	local char = LocalPlayer.Character
-	if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-	local root = char.HumanoidRootPart
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local root = char.HumanoidRootPart
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
 
-	if state then
-		Flying = true
-		BV = Instance.new("BodyVelocity")
-		BV.MaxForce = Vector3.new(1, 1, 1) * 10^6
-		BV.Velocity = Vector3.new(0, 0, 0)
-		BV.Parent = root
+    if state then
+        FlyAttachment = Instance.new("Attachment", root)
+        FlyAttachment.Name = "ZakaitoFlyAttachment"
 
-		BG = Instance.new("BodyGyro")
-		BG.MaxTorque = Vector3.new(1, 1, 1) * 10^6
-		BG.CFrame = root.CFrame
-		BG.Parent = root
-	else
-		Flying = false
-		if BV then BV:Destroy() end
-		if BG then BG:Destroy() end
-	end
+        FlyLV = Instance.new("LinearVelocity", root)
+        FlyLV.Name = "ZakaitoFlyLV"
+        FlyLV.Attachment0 = FlyAttachment
+        FlyLV.MaxForce = 10^6
+        FlyLV.VectorVelocity = Vector3.new(0, 0, 0)
+
+        FlyAO = Instance.new("AlignOrientation", root)
+        FlyAO.Name = "ZakaitoFlyAO"
+        FlyAO.Attachment0 = FlyAttachment
+        FlyAO.Mode = Enum.OrientationAlignmentMode.OneAttachment
+        FlyAO.MaxTorque = 10^6
+        FlyAO.Responsiveness = 200
+        FlyAO.CFrame = Camera.CFrame
+
+        if humanoid then humanoid.PlatformStand = true end
+    else
+        if FlyLV then FlyLV:Destroy() end
+        if FlyAO then FlyAO:Destroy() end
+        if FlyAttachment then FlyAttachment:Destroy() end
+        if humanoid then humanoid.PlatformStand = false end
+    end
 end
 
 --------------------------------------------------------------------------------
 -- 9. Key Authentication & Keybinds
 --------------------------------------------------------------------------------
 SubmitBtn.MouseButton1Click:Connect(function()
-	if KeyTextBox.Text == CORRECT_KEY then
-		KeyUnlocked = true
-		KeyFrame.Visible = false
-		MainFrame.Visible = true
-	else
-		KeyTextBox.Text = ""
-		KeyTextBox.PlaceholderText = "Invalid Key!"
-		KeyTextBox.PlaceholderColor3 = Color3.fromRGB(235, 52, 122)
-	end
+    if KeyTextBox.Text == CORRECT_KEY then
+        KeyUnlocked = true
+        KeyFrame.Visible = false
+        MainFrame.Visible = true
+    else
+        KeyTextBox.Text = ""
+        KeyTextBox.PlaceholderText = "Invalid Key!"
+        KeyTextBox.PlaceholderColor3 = Color3.fromRGB(235, 52, 122)
+    end
 end)
 
 UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
+    if gpe then return end
 
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then IsAiming = true end
-	
-	if input.KeyCode == Enum.KeyCode.E then
-		Features.FlyMode = not Features.FlyMode
-		ToggleFly(Features.FlyMode)
-	end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then IsAiming = true end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then IsShooting = true end
+    
+    if input.KeyCode == Enum.KeyCode.E then
+        Features.FlyMode = not Features.FlyMode
+        ToggleFly(Features.FlyMode)
+    end
 
-	if input.KeyCode == Enum.KeyCode.Space and Features.InfiniteJump then
-		local char = LocalPlayer.Character
-		if char and char:FindFirstChildOfClass("Humanoid") then
-			char:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
-		end
-	end
+    if input.KeyCode == Enum.KeyCode.Space and Features.InfiniteJump then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            char:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then IsAiming = false end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then IsAiming = false end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then IsShooting = false end
 end)
 
 --------------------------------------------------------------------------------
--- 10. RenderStepped Loop
+-- 10. Target System
 --------------------------------------------------------------------------------
 local function GetClosestTarget()
-	local closestTarget = nil
-	local shortestDistance = FOVRadius
-	local mousePos = UserInputService:GetMouseLocation()
+    local closestTarget = nil
+    local shortestDistance = FOVRadius
+    local mousePos = UserInputService:GetMouseLocation()
 
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-			local targetPart = Features.HeadshotOnly and player.Character:FindFirstChild("Head") or (player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart"))
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local isEnemy = true
+            if Features.TeamCheck and player.Team and LocalPlayer.Team then
+                if player.Team == LocalPlayer.Team then isEnemy = false end
+            end
 
-			if humanoid and humanoid.Health > 0 and targetPart then
-				local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-				if onScreen then
-					local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-					if dist < shortestDistance then
-						shortestDistance = dist
-						closestTarget = targetPart
-					end
-				end
-			end
-		end
-	end
-	return closestTarget
+            if isEnemy then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                local targetPart = Features.HeadshotOnly and player.Character:FindFirstChild("Head") or (player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart"))
+
+                if humanoid and humanoid.Health > 0 and targetPart then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        if dist < shortestDistance then
+                            shortestDistance = dist
+                            closestTarget = targetPart
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestTarget
 end
 
+-- Kill All Loop
+task.spawn(function()
+    while task.wait(0.2) do
+        if KeyUnlocked and Features.KillAll and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myRoot = LocalPlayer.Character.HumanoidRootPart
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local isEnemy = true
+                    if Features.TeamCheck and player.Team and LocalPlayer.Team then
+                        if player.Team == LocalPlayer.Team then isEnemy = false end
+                    end
+
+                    local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                    local enemyHum = player.Character:FindFirstChildOfClass("Humanoid")
+
+                    if isEnemy and enemyRoot and enemyHum and enemyHum.Health > 0 then
+                        myRoot.CFrame = enemyRoot.CFrame * CFrame.new(0, 0, 3)
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, enemyRoot.Position)
+                        task.wait(0.15)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- 11. RenderStepped Loop (تحديث الـ Drawing)
+--------------------------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
-	if not KeyUnlocked then return end
+    if not KeyUnlocked then return end
 
-	local mousePos = UserInputService:GetMouseLocation()
-	FOVCircle.Position = mousePos
+    local mousePos = UserInputService:GetMouseLocation()
+    FOVCircle.Position = mousePos
 
-	if Flying and BV and BG then
-		local moveDir = Vector3.new()
-		if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
-		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+    -- Fly Updates
+    if Features.FlyMode and FlyLV and FlyAO then
+        local moveDir = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
 
-		BV.Velocity = moveDir * FlySpeed
-		BG.CFrame = Camera.CFrame
-	end
+        FlyLV.VectorVelocity = moveDir * FlySpeed
+        FlyAO.CFrame = Camera.CFrame
+    end
 
-	if Features.Aimbot and IsAiming then
-		local target = GetClosestTarget()
-		if target then
-			Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Smoothness)
-		end
-	end
+    -- Aimbot
+    if (Features.Aimbot and IsAiming) or (Features.SilentAim and IsShooting) then
+        local target = GetClosestTarget()
+        if target then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+        end
+    end
 
-	if Features.Noclip and LocalPlayer.Character then
-		for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-			if part:IsA("BasePart") then part.CanCollide = false end
-		end
-	end
+    -- Noclip
+    if Features.Noclip and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
 
-	if LocalPlayer.Character then
-		local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.WalkSpeed = Features.SpeedBoost and 28 or 16
-			humanoid.JumpPower = Features.HighJump and 80 or 50
-		end
-	end
+    -- Speed & Jump
+    if LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = Features.SpeedBoost and 28 or 16
+            humanoid.JumpPower = Features.HighJump and 80 or 50
+        end
+    end
+
+    -- Render ESP RGB Box & Tracers
+    local rgbColor = GetRGBColor()
+    for player, objs in pairs(ESPObjects) do
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+
+        local box = objs[3]
+        local tracer = objs[4]
+
+        if root and humanoid and humanoid.Health > 0 then
+            local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+
+            -- Tracers (تعديل النقطة المرجعية لتصبح من الأعلى)
+            if Features.ESP_Tracers and onScreen then
+                tracer.From = Vector2.new(Camera.ViewportSize.X / 2, 0) -- خط تنطلق بدايته من أعلى منتصف الشاشة
+                tracer.To = Vector2.new(rootPos.X, rootPos.Y)
+                tracer.Color = rgbColor
+                tracer.Visible = true
+            else
+                tracer.Visible = false
+            end
+
+            -- RGB Box
+            if Features.ESP_BoxRGB and onScreen then
+                local head = char:FindFirstChild("Head")
+                if head then
+                    local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+                    local height = math.abs(headPos.Y - legPos.Y)
+                    local width = height / 1.5
+
+                    box.Size = Vector2.new(width, height)
+                    box.Position = Vector2.new(rootPos.X - width / 2, rootPos.Y - height / 2)
+                    box.Color = rgbColor
+                    box.Visible = true
+                else
+                    box.Visible = false
+                end
+            else
+                box.Visible = false
+            end
+        else
+            if box then box.Visible = false end
+            if tracer then tracer.Visible = false end
+        end
+    end
 end)
